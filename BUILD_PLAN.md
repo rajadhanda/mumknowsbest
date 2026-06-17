@@ -6,6 +6,17 @@ or talk to on her phone**.
 
 > Status: planning. Nothing is built yet. This document is the blueprint.
 
+### Decisions locked in (2026-06-17)
+- **Language:** **Hindi + English mix (Hinglish)** — pages, speech, and replies may
+  switch between English, Hindi (Devanagari), and romanized Hindi. This shapes OCR,
+  speech-to-text, text-to-speech, and how the agent talks back.
+- **First source to ingest:** the **paper recipe book** (photos) — it's the
+  irreplaceable family content, so we capture it first.
+- **Channel:** open to **WhatsApp, a web app, or an iOS app.** Recommendation below
+  (§6): build an **installable web app (PWA)** first — it gives an iOS-app-like
+  experience with no App Store overhead — and add **WhatsApp** as the zero-friction
+  messaging channel. A true native iOS app stays an easy later option.
+
 ---
 
 ## 1. What we're building (in one sentence)
@@ -134,31 +145,38 @@ Three pipelines, all ending in one canonical recipe record.
 - **Persona (system prompt):** warm, patient, talks like a helpful family cook.
   Reads steps **one at a time** in a hands-free "cooking mode," and answers in Mum's
   language.
-- **Voice:**
-  - Speech-to-text: **Whisper** (handles many languages well, incl. Hindi and
-    Hinglish) — perfect for WhatsApp voice notes.
-  - Text-to-speech: a natural TTS (e.g. ElevenLabs / OpenAI TTS) for spoken replies,
-    or the browser's built-in voice for the web version.
+- **Voice (Hinglish):**
+  - Speech-to-text: **Whisper** — handles Hindi and code-switched Hinglish, and works
+    on WhatsApp voice notes. We'll test it on real samples of Mum's speech and tune.
+  - Text-to-speech: a **multilingual / Hindi-capable** voice (e.g. ElevenLabs
+    multilingual or OpenAI TTS, both speak Hindi) so spoken replies sound natural; the
+    browser's built-in voice is a free fallback for the web version.
+- **Talking back in her register:** the system prompt instructs the agent to **mirror
+  Mum's language and script** — if she writes/speaks Hinglish, it replies in Hinglish;
+  if she switches to Hindi, it follows. Recipes are stored with a `language` field and
+  their original wording preserved.
 
-> If Mum's recipes or speech are in Hindi / another language (or a mix), that's fully
-> supported — it's a configuration choice we set early, because it affects OCR, STT,
-> and TTS.
+> Hinglish touches every layer — **OCR** (mixed Devanagari + Latin on the book pages),
+> **STT**, **TTS**, and the **agent's replies**. We bake it in from day one rather than
+> bolting it on.
 
 ---
 
 ## 6. How Mum reaches it (the channel)
 
-Recommendation: **build channel-agnostic, ship on WhatsApp.**
+You're open to **WhatsApp, a web app, or an iOS app.** Recommendation:
+**build channel-agnostic; ship an installable web app first, then add WhatsApp.**
 
 | Option | Why / why not |
 |---|---|
-| **WhatsApp** ✅ *(target)* | She already uses it daily; voice notes are native and perfect for "speak to it"; nothing to install. Needs WhatsApp Business API (via Twilio or Meta Cloud API) — some setup + small cost. |
-| **Web PWA** ✅ *(dev + testing)* | Free, full control, works on any phone, browser mic/speaker for voice. Great for iterating quickly and for other family members. Downside: she has to open a link. |
-| Telegram | Easiest/free bot API with voice — good fallback if WhatsApp setup is a hurdle, but she may not use Telegram. |
-| Phone call agent | Most natural for a non-techy user (just call a number) but the most complex to build. A possible "v2" delight. |
+| **Web app (PWA)** ✅ *(build first)* | Free, full control over layout (big text, mic button, recipe photos), works on iPhone, and **"Add to Home Screen" makes it feel like a native app** — no App Store. Voice via Safari. This covers the "iOS app" wish without the App Store overhead. Downside: first launch is a link, not an icon (until she pins it). |
+| **WhatsApp** ✅ *(add next)* | She already uses it; voice notes are native and ideal for "speak to it"; truly zero-friction. Needs WhatsApp Business API (Twilio or Meta Cloud API) — some setup + small cost. |
+| Native iOS app | Nicest icon-on-homescreen + App Store presence, but adds real build/release overhead (Xcode, Apple Developer account, review). Keep as an easy upgrade once the PWA proves the experience. |
+| Telegram / phone-call agent | Free/voice fallback and a "magical" voice option respectively — held in reserve. |
 
-Plan: **PWA first** (to test the brain with Mum fast), then **WhatsApp** for the
-real, frictionless experience.
+Plan: the recipe brain is shared by all channels, so **PWA first** (test with Mum
+fast, get the iOS-app feel via Home Screen), then **WhatsApp**, and a native iOS app
+only if she wants it in the App Store.
 
 ---
 
@@ -179,29 +197,33 @@ real, frictionless experience.
 ## 8. Roadmap (phased — each phase is independently useful)
 
 **Phase 0 — Foundations (½ day)**
-Repo scaffolding, Python project, `.env` for API keys, the recipe schema, and a
-SQLite store. Outcome: a place to put recipes.
+Repo scaffolding, Python project, `.env` for API keys, the recipe schema (with the
+`language` field), and a SQLite store. Outcome: a place to put recipes.
 
-**Phase 1 — One ingestion pipeline end-to-end (YouTube first)**
-YouTube is the most reliable source. Build playlist → transcript → Claude → stored
-recipes. Outcome: the DB has real recipes to work with.
+**Phase 1 — Paper-book pipeline end-to-end** *(first source)*
+Photos → Claude vision OCR (Hinglish: mixed Devanagari + Latin) → structured recipe →
+quick review step → stored, with the source photo kept. Outcome: Mum's irreplaceable
+book recipes are digitized first.
 
 **Phase 2 — The recipe brain**
-Hybrid search + the Claude agent with tools, usable over a CLI or tiny web page.
-Outcome: you can already *ask it questions* about the YouTube recipes.
+Hybrid search + the Claude agent with tools, usable over a CLI or tiny web page,
+replying in Hinglish. Outcome: you can already *ask it questions* about the book recipes.
 
 **Phase 3 — The other two pipelines**
-Add Instagram (captions first) and the paper book (vision OCR + review step).
-Outcome: the full collection is in.
+Add YouTube (playlist → transcripts) and Instagram (captions first). Outcome: the full
+collection is in.
 
-**Phase 4 — Voice + PWA**
-Add speech-in / speech-out and a phone-friendly web app. Outcome: Mum can talk to it.
+**Phase 4 — Voice + installable web app**
+Hinglish speech-in / speech-out and a phone-friendly PWA (Add-to-Home-Screen = iOS-app
+feel). Outcome: Mum can talk to it.
 
-**Phase 5 — Ship on WhatsApp**
-Wire the brain to WhatsApp so it lives where she already is. Outcome: the real product.
+**Phase 5 — Add WhatsApp**
+Wire the brain to WhatsApp so it lives where she already is. Outcome: zero-friction
+access via voice notes.
 
 **Phase 6 — Polish**
-"Add this recipe" by photo or link, a hands-free cooking mode, family sharing.
+"Add this recipe" by photo or link, a hands-free cooking mode, family sharing, and —
+if wanted — a native iOS app.
 
 ---
 
@@ -222,13 +244,14 @@ Wire the brain to WhatsApp so it lives where she already is. Outcome: the real p
 
 ## 10. Immediate next steps
 
-1. Confirm the few choices that shape the build: **channel** (WhatsApp target, PWA for
-   dev — good default), **language(s)** of the recipes, and whether to keep everything
-   **local/private** vs use hosted services.
-2. Gather inputs: the **YouTube playlist link(s)**, a handful of **Instagram links**,
-   and **5–10 photos** of book pages to test the OCR.
-3. Build **Phase 0 + Phase 1** so there are real recipes in the system within the
-   first sitting.
+1. **Get 5–10 clear photos of book pages** (a mix: printed *and* handwritten, English
+   *and* Hindi if both exist) — this is the only input needed to start Phase 1.
+2. One remaining choice: keep everything **local/private** (local Whisper + local
+   embeddings, nothing leaves the house) vs use **hosted** services (a bit easier, very
+   low cost). Sensible default: hosted to start, with privacy locked down to Mum +
+   family; revisit if we want fully local.
+3. Build **Phase 0 + Phase 1** so the first real recipes from the book are in the
+   system within the first sitting — then point the agent (Phase 2) at them.
 
-> Recommendation: start by pointing Phase 1 at the YouTube playlist — it's the
-> fastest path to "wow, it actually knows Mum's recipes."
+> Channel and language are decided (§ Decisions locked in). Paper book is the starting
+> source, so the very next concrete thing is a folder of page photos to OCR.
