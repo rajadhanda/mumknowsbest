@@ -41,6 +41,7 @@ class PaperBookSource:
                     time_minutes=er.time_minutes,
                     ingredients=er.ingredients,
                     steps=er.steps,
+                    notes=er.notes,
                     tags=er.tags,
                     language=er.language,
                     raw_text=er.raw_text,

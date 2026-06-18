@@ -17,11 +17,13 @@ def test_recipe_json_round_trip():
         servings=4,
         ingredients=[Ingredient(item="paneer", qty="250", unit="g")],
         steps=["Soak cashews", "Blend", "Simmer"],
+        notes=["Garnish with cream", "Can swap paneer for tofu"],
         tags=["north-indian", "vegetarian"],
         language="hinglish",
     )
     restored = Recipe.model_validate_json(r.model_dump_json())
     assert restored == r
+    assert restored.notes == ["Garnish with cream", "Can swap paneer for tofu"]
 
 
 def test_page_extraction_holds_many_recipes():

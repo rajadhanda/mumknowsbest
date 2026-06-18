@@ -39,9 +39,12 @@ Rules:
 - Set `language` to what the page actually uses: "en", "hi", or "hinglish".
 - If a photo shows more than one recipe, return each one separately. If it shows none, return an
   empty list.
-- Quantities matter: capture `qty` and `unit` exactly as written. Do not invent numbers you
-  cannot read — leave them out instead.
+- Quantities matter: capture `qty` and `unit` exactly as written (including "to taste",
+  "andaaz", "स्वादानुसार"). Do not invent numbers you cannot read — leave them out instead.
+- Put the cook's tips, variations, substitutions, and garnish lines in `notes` (e.g. a
+  "नोट:" line, or "garnish with ..."), not in `steps`.
 - Add a few helpful tags (cuisine, meal type, dietary) only when they're obvious.
+- If a word is unclear, transcribe your best guess and keep going — don't drop the recipe.
 """
 
 

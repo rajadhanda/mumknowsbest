@@ -37,6 +37,7 @@ class Recipe(BaseModel):
     time_minutes: Optional[int] = None
     ingredients: list[Ingredient] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)  # the cook's tips, variations, substitutions, garnish
     tags: list[str] = Field(default_factory=list)
     language: str = "en"  # "en" | "hi" | "hinglish" — preserve what the source actually used
     raw_text: str = ""  # original wording, for grounding and citations
@@ -54,6 +55,7 @@ class ExtractedRecipe(BaseModel):
     time_minutes: Optional[int] = None
     ingredients: list[Ingredient] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     language: str = "en"
     raw_text: str = ""

@@ -47,6 +47,7 @@ class SqliteRecipeStore:
         parts = [recipe.title, " ".join(recipe.tags), recipe.raw_text]
         parts += [f"{i.qty or ''} {i.unit or ''} {i.item}" for i in recipe.ingredients]
         parts += recipe.steps
+        parts += recipe.notes
         return " ".join(parts).lower()
 
     # -- RecipeStore -------------------------------------------------------

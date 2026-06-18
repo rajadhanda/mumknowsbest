@@ -4,13 +4,14 @@ from mumknowsbest.models import Ingredient, Recipe, SourceRef
 from mumknowsbest.storage import RecipeStore, SqliteRecipeStore
 
 
-def _recipe(title, *, ingredients=(), tags=(), steps=()):
+def _recipe(title, *, ingredients=(), tags=(), steps=(), notes=()):
     return Recipe(
         title=title,
         source=SourceRef(type="book", page_photo=f"{title}.jpg"),
         ingredients=[Ingredient(item=i) for i in ingredients],
         tags=list(tags),
         steps=list(steps),
+        notes=list(notes),
     )
 
 
@@ -54,3 +55,10 @@ def test_search_empty_query_returns_some(tmp_path):
     store = SqliteRecipeStore(tmp_path / "r.db")
     store.add(_recipe("Idli"))
     assert len(store.search("")) == 1
+
+
+def test_search_matches_text_in_notes(tmp_path):
+    store = SqliteRecipeStore(tmp_path / "r.db")
+    store.add(_recipe("Mathiyaan", notes=["dahi bhi daal sakte hain"]))
+    store.add(_recipe("Idli"))
+    assert [r.title for r in store.search("dahi")] == ["Mathiyaan"]
