@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mum Knows Best</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e8590c">
+<style>
+  :root {
+    --bg: #fff8f0; --card: #ffffff; --ink: #2d2016; --muted: #8a7663;
+    --accent: #e8590c; --accent-soft: #ffe3d0; --mine: #e8590c; --mine-ink: #fff;
+    --theirs: #ffffff; --border: #f0e2d2; --shadow: 0 1px 4px rgba(90,60,30,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201812; --card: #2b2118; --ink: #f4e9dd; --muted: #b09a85;
+      --accent: #ff8a4c; --accent-soft: #4a2e1c; --mine: #c9500f; --mine-ink: #fff;
+      --theirs: #2b2118; --border: #3d2f22; --shadow: 0 1px 4px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 17px/1.45 -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+    background: var(--bg); color: var(--ink);
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  header .logo { font-size: 28px; }
+  header h1 { font-size: 19px; font-weight: 700; flex: 1; }
+  header h1 small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+  header button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink);
+    border-radius: 12px; font-size: 20px; padding: 6px 10px; cursor: pointer;
+  }
+  header button.on { background: var(--accent-soft); border-color: var(--accent); }
+  #chat { flex: 1; overflow-y: auto; padding: 14px 12px 8px; scroll-behavior: smooth; }
+  .msg { max-width: 84%; padding: 10px 14px; border-radius: 18px; margin: 5px 0;
+         box-shadow: var(--shadow); white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { background: var(--mine); color: var(--mine-ink); margin-left: auto; border-bottom-right-radius: 6px; }
+  .msg.bot  { background: var(--theirs); border: 1px solid var(--border); margin-right: auto; border-bottom-left-radius: 6px; }
+  .msg.bot.thinking { color: var(--muted); font-style: italic; }
+  .hello { text-align: center; color: var(--muted); font-size: 15px; margin: 22px 14px; }
+  .hello b { color: var(--ink); }
+  form#bar {
+    display: flex; gap: 8px; padding: 10px 12px 12px; background: var(--card);
+    border-top: 1px solid var(--border); align-items: center;
+  }
+  #text {
+    flex: 1; font: inherit; padding: 12px 14px; border-radius: 22px;
+    border: 1.5px solid var(--border); background: var(--bg); color: var(--ink); outline: none;
+  }
+  #text:focus { border-color: var(--accent); }
+  #bar button {
+    width: 48px; height: 48px; border-radius: 50%; border: none; font-size: 22px;
+    cursor: pointer; flex: none; display: grid; place-items: center;
+  }
+  #mic { background: var(--accent-soft); color: var(--accent); }
+  #mic.listening { background: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
+  #send { background: var(--accent); color: #fff; }
+  @keyframes pulse { 50% { transform: scale(1.12); } }
+  /* Recipe drawer */
+  #drawer {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 10;
+  }
+  #drawer.open { display: block; }
+  #drawer .panel {
+    position: absolute; right: 0; top: 0; bottom: 0; width: min(420px, 92%);
+    background: var(--bg); overflow-y: auto; padding: 16px;
+    border-left: 1px solid var(--border);
+  }
+  .panel h2 { font-size: 18px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .panel h2 button { border: none; background: none; font-size: 22px; cursor: pointer; color: var(--muted); }
+  .rcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px; margin-bottom: 10px; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .rcard .t { font-weight: 700; }
+  .rcard .tags { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .rfull h3 { font-size: 21px; margin: 8px 0 2px; }
+  .rfull .meta { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+  .rfull h4 { margin: 12px 0 4px; font-size: 15px; color: var(--accent); }
+  .rfull li { margin: 3px 0 3px 20px; }
+  .rfull .note { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; margin: 6px 0; font-size: 15px; }
+  .back { color: var(--accent); background: none; border: none; font: inherit; cursor: pointer; padding: 0 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">👩‍🍳</span>
+  <h1>Mum Knows Best<small id="count">…</small></h1>
+  <button id="speak" title="Speak replies aloud">🔊</button>
+  <button id="book" title="Recipe book">📖</button>
+</header>
+
+<main id="chat">
+  <p class="hello">Namaste! 🙏 Pucho — <b>“aaj kya banau?”</b>, <b>“मठियाँ kaise banti hain?”</b> —
+  ya 🎤 daba kar bol do.</p>
+</main>
+
+<form id="bar" autocomplete="off">
+  <button type="button" id="mic" title="Bol kar pucho">🎤</button>
+  <input id="text" placeholder="Kuch bhi pucho…" enterkeyhint="send">
+  <button type="submit" id="send" title="Send">➤</button>
+</form>
+
+<div id="drawer"><div class="panel"><h2>📖 Recipe Book <button id="close">✕</button></h2><div id="plist"></div></div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const chat = $('chat'), input = $('text');
+const history = [];           // plain-text turns replayed to the server
+let speakOn = false;
+
+function bubble(text, who, cls = '') {
+  const div = document.createElement('div');
+  div.className = `msg ${who} ${cls}`;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+async function send(message) {
+  message = message.trim();
+  if (!message) return;
+  input.value = '';
+  bubble(message, 'user');
+  const wait = bubble('soch rahi hoon…', 'bot', 'thinking');
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history })
+    });
+    const data = await res.json();
+    const reply = res.ok ? data.reply : (data.detail || 'Kuch gadbad ho gayi — phir se try karo.');
+    wait.remove();
+    bubble(reply, 'bot');
+    if (res.ok) {
+      history.push({ role: 'user', content: message }, { role: 'assistant', content: reply });
+      if (speakOn) speak(reply);
+    }
+  } catch (e) {
+    wait.remove();
+    bubble('Server se baat nahi ho paayi — check karo ki app chal raha hai.', 'bot');
+  }
+}
+
+$('bar').addEventListener('submit', e => { e.preventDefault(); send(input.value); });
+
+/* ---- Voice in: browser speech recognition (Hinglish via hi-IN) ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mic = $('mic');
+if (SR) {
+  const rec = new SR();
+  rec.lang = 'hi-IN'; rec.interimResults = false;
+  let listening = false;
+  rec.onresult = e => send(e.results[0][0].transcript);
+  rec.onend = () => { listening = false; mic.classList.remove('listening'); };
+  mic.onclick = () => {
+    if (listening) { rec.stop(); return; }
+    listening = true; mic.classList.add('listening'); rec.start();
+  };
+} else {
+  mic.onclick = () => bubble('Is browser mein mic support nahi hai — type kar ke pucho.', 'bot');
+}
+
+/* ---- Voice out: browser TTS, preferring a Hindi voice ---- */
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = speechSynthesis.getVoices();
+  u.voice = voices.find(v => v.lang.startsWith('hi')) || voices.find(v => v.lang.startsWith('en-IN')) || null;
+  u.lang = u.voice ? u.voice.lang : 'hi-IN';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+$('speak').onclick = () => {
+  speakOn = !speakOn;
+  $('speak').classList.toggle('on', speakOn);
+  if (!speakOn) speechSynthesis.cancel();
+};
+
+/* ---- Recipe book drawer ---- */
+const drawer = $('drawer'), plist = $('plist');
+$('book').onclick = async () => { drawer.classList.add('open'); await showList(); };
+$('close').onclick = () => drawer.classList.remove('open');
+drawer.onclick = e => { if (e.target === drawer) drawer.classList.remove('open'); };
+
+async function showList() {
+  const recipes = await (await fetch('/api/recipes')).json();
+  plist.innerHTML = '';
+  if (!recipes.length) { plist.innerHTML = '<p class="hello">Abhi koi recipe nahi hai — pehle photos ingest karo.</p>'; return; }
+  for (const r of recipes) {
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `<div class="t"></div><div class="tags"></div>`;
+    card.querySelector('.t').textContent = r.title;
+    card.querySelector('.tags').textContent = r.tags.join(' · ');
+    card.onclick = () => showRecipe(r.id);
+    plist.appendChild(card);
+  }
+}
+
+async function showRecipe(id) {
+  const r = await (await fetch('/api/recipes/' + id)).json();
+  const el = document.createElement('div');
+  el.className = 'rfull';
+  const li = xs => xs.map(x => { const l = document.createElement('li'); l.textContent = x; return l; });
+  el.innerHTML = `<button class="back">‹ Recipe book</button><h3></h3><div class="meta"></div>
+    <h4>Ingredients</h4><ul class="ing"></ul><h4>Steps</h4><ol class="st"></ol><div class="notes"></div>`;
+  el.querySelector('h3').textContent = r.title;
+  el.querySelector('.meta').textContent =
+    [r.servings && `serves ${r.servings}`, r.time_minutes && `${r.time_minutes} min`, r.source?.type]
+      .filter(Boolean).join(' · ');
+  el.querySelector('.ing').append(...li(r.ingredients.map(i => [i.qty, i.unit, i.item].filter(Boolean).join(' '))));
+  el.querySelector('.st').append(...li(r.steps));
+  for (const n of (r.notes || [])) {
+    const d = document.createElement('div'); d.className = 'note'; d.textContent = '💡 ' + n;
+    el.querySelector('.notes').appendChild(d);
+  }
+  el.querySelector('.back').onclick = showList;
+  plist.innerHTML = ''; plist.appendChild(el);
+}
+
+/* ---- Health + install ---- */
+fetch('/api/health').then(r => r.json()).then(h => {
+  $('count').textContent = `${h.recipes} recipe${h.recipes === 1 ? '' : 's'}` + (h.chat_ready ? '' : ' · chat offline');
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
