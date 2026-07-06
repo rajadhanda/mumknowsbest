@@ -27,7 +27,9 @@ src/mumknowsbest/
 ├── agent/
 │   ├── tools.py         # search_recipes / get_recipe, bound to RecipeStore
 │   └── agent.py         # Claude + tools, Hinglish, channel-agnostic
-└── cli.py               # first "channel"; web app & WhatsApp reuse the same brain
+├── channels/
+│   └── web/             # installable PWA (chat + voice via the browser)  ← Mum's app
+└── cli.py               # dev "channel"; WhatsApp will reuse the same brain
 ```
 
 **Adding things later is a drop-in:**
@@ -52,9 +54,24 @@ mumknowsbest ingest-photos ./photos
 # See what's stored
 mumknowsbest list
 
-# Ask (chat). Voice is added at the channel edge later.
+# Ask from the terminal
 mumknowsbest ask "guests aa rahe hain, kuch paneer banau?"
+
+# Run Mum's app (chat + voice, installable)
+mumknowsbest serve            # then open http://<your-ip>:8000 on her phone
 ```
+
+### The web app
+
+`mumknowsbest serve` runs an installable PWA: a big-text Hinglish chat with a 🎤 button
+(speech-to-text in the browser, `hi-IN`), a 🔊 toggle that reads replies aloud, and a
+📖 drawer that browses the full recipe collection. On an iPhone, **Share → Add to Home
+Screen** gives it an icon and a full-screen, app-like feel.
+
+Voice runs entirely in the browser (Web Speech API) — the server only moves text, so
+the same brain will plug into WhatsApp untouched. Note: iOS Safari needs HTTPS (or
+localhost) for the mic; for testing on her phone, tunnel with something like
+`tailscale`/`ngrok`, or use text first.
 
 ## Tests
 
@@ -67,6 +84,7 @@ pytest
 
 ## Status
 
-Phase 0 (foundations) and the Phase 1 paper-book pipeline are scaffolded and wired
-end-to-end. Next: point it at real page photos, then YouTube/Instagram sources, voice,
-and the web/WhatsApp channels — see the roadmap in `BUILD_PLAN.md`.
+Built and tested: foundations (Phase 0), the paper-book pipeline (Phase 1), the recipe
+brain (Phase 2), and the voice-capable web app (Phase 4) — the schema is validated
+against real handwritten Hinglish/Hindi pages. Next: YouTube/Instagram sources
+(Phase 3), WhatsApp (Phase 5) — see the roadmap in `BUILD_PLAN.md`.

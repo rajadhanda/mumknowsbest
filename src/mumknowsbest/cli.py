@@ -49,6 +49,26 @@ def cmd_list(args: argparse.Namespace) -> None:
     print(f"\n{store.count()} recipe(s).")
 
 
+def cmd_serve(args: argparse.Namespace) -> None:
+    try:
+        import uvicorn
+
+        from .channels.web import create_app
+    except ImportError:
+        print(
+            'The web app needs extra packages: pip install -e ".[web]"',
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    settings = get_settings()
+    store = SqliteRecipeStore(settings.db_path)
+    if not settings.anthropic_api_key:
+        print("Note: ANTHROPIC_API_KEY not set — recipes will browse, chat will be offline.")
+    print(f"Serving Mum's app on http://{args.host}:{args.port}  ({store.count()} recipes)")
+    uvicorn.run(create_app(store, settings=settings), host=args.host, port=args.port)
+
+
 def cmd_ask(args: argparse.Namespace) -> None:
     from .agent.agent import RecipeAgent
 
@@ -70,6 +90,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = sub.add_parser("list", help="List stored recipes")
     p_list.set_defaults(func=cmd_list)
+
+    p_serve = sub.add_parser("serve", help="Run the web app (installable PWA: chat + voice)")
+    p_serve.add_argument("--host", default="0.0.0.0")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.set_defaults(func=cmd_serve)
 
     p_ask = sub.add_parser("ask", help="Ask the assistant a question")
     p_ask.add_argument("question", help="Your question, in quotes")

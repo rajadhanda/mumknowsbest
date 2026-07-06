@@ -36,7 +36,9 @@ def _tokenize(text: str) -> list[str]:
 class SqliteRecipeStore:
     def __init__(self, path: str | Path = "recipes.db") -> None:
         self.path = str(path)
-        self._conn = sqlite3.connect(self.path)
+        # Server handlers run on worker threads; sqlite objects are only ever used
+        # sequentially here (personal app, commit-per-write), so cross-thread is safe.
+        self._conn = sqlite3.connect(self.path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
