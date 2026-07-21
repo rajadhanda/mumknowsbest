@@ -31,7 +31,7 @@
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
   header {
-    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px; padding: 12px 14px;
     background: var(--card); border-bottom: 1px solid var(--border);
   }
   header .logo { font-size: 28px; }
@@ -57,6 +57,7 @@
   #text {
     flex: 1; font: inherit; padding: 12px 14px; border-radius: 22px;
     border: 1.5px solid var(--border); background: var(--bg); color: var(--ink); outline: none;
+    min-width: 0;
   }
   #text:focus { border-color: var(--accent); }
   #bar button {
@@ -67,12 +68,10 @@
   #mic.listening { background: var(--accent); color: #fff; animation: pulse 1.2s infinite; }
   #send { background: var(--accent); color: #fff; }
   @keyframes pulse { 50% { transform: scale(1.12); } }
-  /* Recipe drawer */
-  #drawer {
-    position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 10;
-  }
-  #drawer.open { display: block; }
-  #drawer .panel {
+  /* Slide-over panels (recipe book + add recipe) */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 10; }
+  .overlay.open { display: block; }
+  .overlay .panel {
     position: absolute; right: 0; top: 0; bottom: 0; width: min(420px, 92%);
     background: var(--bg); overflow-y: auto; padding: 16px;
     border-left: 1px solid var(--border);
@@ -90,20 +89,42 @@
   .rfull h4 { margin: 12px 0 4px; font-size: 15px; color: var(--accent); }
   .rfull li { margin: 3px 0 3px 20px; }
   .rfull .note { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; margin: 6px 0; font-size: 15px; }
+  .rfull img.page { width: 100%; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
   .back { color: var(--accent); background: none; border: none; font: inherit; cursor: pointer; padding: 0 0 8px; }
+  /* Add-recipe sheet */
+  .bigbtn {
+    display: flex; align-items: center; gap: 12px; width: 100%; font: inherit;
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px; cursor: pointer; color: var(--ink); text-align: left;
+  }
+  .bigbtn .ico { font-size: 24px; }
+  .bigbtn small { display: block; color: var(--muted); font-size: 13px; }
+  #linkrow { display: flex; gap: 8px; margin-top: 4px; }
+  #linkrow input {
+    flex: 1; font: inherit; padding: 12px; border-radius: 12px; min-width: 0;
+    border: 1.5px solid var(--border); background: var(--card); color: var(--ink);
+  }
+  #linkrow button {
+    font: inherit; border: none; background: var(--accent); color: #fff;
+    border-radius: 12px; padding: 0 16px; cursor: pointer;
+  }
+  #addlog { margin-top: 12px; font-size: 15px; }
+  #addlog .ok { color: var(--accent); }
+  #addlog p { margin: 6px 0; }
 </style>
 </head>
 <body>
 <header>
   <span class="logo">👩‍🍳</span>
   <h1>Mum Knows Best<small id="count">…</small></h1>
+  <button id="add" title="Nayi recipe">➕</button>
   <button id="speak" title="Speak replies aloud">🔊</button>
   <button id="book" title="Recipe book">📖</button>
 </header>
 
 <main id="chat">
   <p class="hello">Namaste! 🙏 Pucho — <b>“aaj kya banau?”</b>, <b>“मठियाँ kaise banti hain?”</b> —
-  ya 🎤 daba kar bol do.</p>
+  ya 🎤 daba kar bol do. Nayi recipe add karni hai? ➕ dabao.</p>
 </main>
 
 <form id="bar" autocomplete="off">
@@ -112,13 +133,41 @@
   <button type="submit" id="send" title="Send">➤</button>
 </form>
 
-<div id="drawer"><div class="panel"><h2>📖 Recipe Book <button id="close">✕</button></h2><div id="plist"></div></div></div>
+<div id="drawer" class="overlay"><div class="panel">
+  <h2>📖 Recipe Book <button id="closebook">✕</button></h2><div id="plist"></div>
+</div></div>
+
+<div id="addsheet" class="overlay"><div class="panel">
+  <h2>➕ Nayi Recipe <button id="closeadd">✕</button></h2>
+  <button class="bigbtn" id="snap"><span class="ico">📷</span>
+    <span>Book ka page photo lo<small>ya gallery se photo / screenshot chuno</small></span></button>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <div id="linkrow">
+    <input id="link" placeholder="Instagram / YouTube link paste karo" inputmode="url">
+    <button id="golink" type="button">Add</button>
+  </div>
+  <div id="addlog"></div>
+</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
 const chat = $('chat'), input = $('text');
-const history = [];           // plain-text turns replayed to the server
+const history = [];           // plain-text turns replayed to the server (trimmed)
+const HISTORY_MAX = 12;
 let speakOn = false;
+
+/* ---- API helper: attaches the access token, prompts once on 401 ---- */
+let token = localStorage.getItem('mkb_token') || '';
+async function api(path, opts = {}, retry = true) {
+  opts.headers = Object.assign({}, opts.headers, token ? { 'Authorization': 'Bearer ' + token } : {});
+  const res = await fetch(path, opts);
+  if (res.status === 401 && retry) {
+    const t = prompt('Access token daalo (jisne app set ki hai unse lo):');
+    if (t) { token = t.trim(); localStorage.setItem('mkb_token', token); return api(path, opts, false); }
+  }
+  return res;
+}
+const photoUrl = name => '/api/photos/' + encodeURIComponent(name) + (token ? '?token=' + encodeURIComponent(token) : '');
 
 function bubble(text, who, cls = '') {
   const div = document.createElement('div');
@@ -136,9 +185,9 @@ async function send(message) {
   bubble(message, 'user');
   const wait = bubble('soch rahi hoon…', 'bot', 'thinking');
   try {
-    const res = await fetch('/api/chat', {
+    const res = await api('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, history })
+      body: JSON.stringify({ message, history: history.slice(-HISTORY_MAX) })
     });
     const data = await res.json();
     const reply = res.ok ? data.reply : (data.detail || 'Kuch gadbad ho gayi — phir se try karo.');
@@ -146,6 +195,7 @@ async function send(message) {
     bubble(reply, 'bot');
     if (res.ok) {
       history.push({ role: 'user', content: message }, { role: 'assistant', content: reply });
+      if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
       if (speakOn) speak(reply);
     }
   } catch (e) {
@@ -173,12 +223,22 @@ if (SR) {
   mic.onclick = () => bubble('Is browser mein mic support nahi hai — type kar ke pucho.', 'bot');
 }
 
-/* ---- Voice out: browser TTS, preferring a Hindi voice ---- */
+/* ---- Voice out: browser TTS; the voice list loads async, so cache it ---- */
+let hindiVoice = null;
+function pickVoice() {
+  const voices = speechSynthesis.getVoices();
+  hindiVoice = voices.find(v => v.lang.startsWith('hi'))
+            || voices.find(v => v.lang.startsWith('en-IN')) || null;
+}
+if ('speechSynthesis' in window) {
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices();
-  u.voice = voices.find(v => v.lang.startsWith('hi')) || voices.find(v => v.lang.startsWith('en-IN')) || null;
-  u.lang = u.voice ? u.voice.lang : 'hi-IN';
+  if (!hindiVoice) pickVoice();
+  u.voice = hindiVoice;
+  u.lang = hindiVoice ? hindiVoice.lang : 'hi-IN';
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
@@ -191,49 +251,111 @@ $('speak').onclick = () => {
 /* ---- Recipe book drawer ---- */
 const drawer = $('drawer'), plist = $('plist');
 $('book').onclick = async () => { drawer.classList.add('open'); await showList(); };
-$('close').onclick = () => drawer.classList.remove('open');
+$('closebook').onclick = () => drawer.classList.remove('open');
 drawer.onclick = e => { if (e.target === drawer) drawer.classList.remove('open'); };
 
 async function showList() {
-  const recipes = await (await fetch('/api/recipes')).json();
+  const res = await api('/api/recipes');
+  const recipes = res.ok ? await res.json() : [];
   plist.innerHTML = '';
-  if (!recipes.length) { plist.innerHTML = '<p class="hello">Abhi koi recipe nahi hai — pehle photos ingest karo.</p>'; return; }
+  if (!recipes.length) { plist.innerHTML = '<p class="hello">Abhi koi recipe nahi hai — ➕ se pehli recipe add karo!</p>'; return; }
   for (const r of recipes) {
     const card = document.createElement('div');
     card.className = 'rcard';
     card.innerHTML = `<div class="t"></div><div class="tags"></div>`;
     card.querySelector('.t').textContent = r.title;
-    card.querySelector('.tags').textContent = r.tags.join(' · ');
+    card.querySelector('.tags').textContent = (r.tags || []).join(' · ');
     card.onclick = () => showRecipe(r.id);
     plist.appendChild(card);
   }
 }
 
 async function showRecipe(id) {
-  const r = await (await fetch('/api/recipes/' + id)).json();
+  const res = await api('/api/recipes/' + id);
+  if (!res.ok) { showList(); return; }
+  const r = await res.json();
   const el = document.createElement('div');
   el.className = 'rfull';
   const li = xs => xs.map(x => { const l = document.createElement('li'); l.textContent = x; return l; });
   el.innerHTML = `<button class="back">‹ Recipe book</button><h3></h3><div class="meta"></div>
-    <h4>Ingredients</h4><ul class="ing"></ul><h4>Steps</h4><ol class="st"></ol><div class="notes"></div>`;
+    <h4>Ingredients</h4><ul class="ing"></ul><h4>Steps</h4><ol class="st"></ol><div class="notes"></div><div class="photo"></div>`;
   el.querySelector('h3').textContent = r.title;
   el.querySelector('.meta').textContent =
     [r.servings && `serves ${r.servings}`, r.time_minutes && `${r.time_minutes} min`, r.source?.type]
       .filter(Boolean).join(' · ');
-  el.querySelector('.ing').append(...li(r.ingredients.map(i => [i.qty, i.unit, i.item].filter(Boolean).join(' '))));
-  el.querySelector('.st').append(...li(r.steps));
+  el.querySelector('.ing').append(...li((r.ingredients || []).map(i => [i.qty, i.unit, i.item].filter(Boolean).join(' '))));
+  el.querySelector('.st').append(...li(r.steps || []));
   for (const n of (r.notes || [])) {
     const d = document.createElement('div'); d.className = 'note'; d.textContent = '💡 ' + n;
     el.querySelector('.notes').appendChild(d);
+  }
+  if (r.source && r.source.page_photo && !r.source.page_photo.includes('/')) {
+    const img = document.createElement('img');
+    img.className = 'page'; img.loading = 'lazy'; img.alt = 'Original page';
+    img.src = photoUrl(r.source.page_photo);
+    img.onerror = () => img.remove();
+    el.querySelector('.photo').appendChild(img);
   }
   el.querySelector('.back').onclick = showList;
   plist.innerHTML = ''; plist.appendChild(el);
 }
 
+/* ---- Add recipe: photos or a link ---- */
+const addsheet = $('addsheet'), addlog = $('addlog');
+$('add').onclick = () => addsheet.classList.add('open');
+$('closeadd').onclick = () => addsheet.classList.remove('open');
+addsheet.onclick = e => { if (e.target === addsheet) addsheet.classList.remove('open'); };
+$('snap').onclick = () => $('file').click();
+
+function logAdd(text, ok) {
+  const p = document.createElement('p');
+  if (ok) p.className = 'ok';
+  p.textContent = text;
+  addlog.appendChild(p);
+}
+
+$('file').onchange = async () => {
+  const files = [...$('file').files];
+  $('file').value = '';
+  if (!files.length) return;
+  logAdd(`⏳ ${files.length} photo padh rahi hoon… (thoda time lagta hai)`);
+  const form = new FormData();
+  for (const f of files) form.append('files', f);
+  try {
+    const res = await api('/api/ingest/photos', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) { logAdd('❌ ' + (data.detail || 'photo add nahi ho paayi')); return; }
+    for (const r of data.added) logAdd(`✅ "${r.title}" add ho gayi!`, true);
+    for (const f of data.failed) logAdd(`❌ ${f.file}: ${f.error}`);
+    refreshCount();
+  } catch (e) { logAdd('❌ Upload fail ho gaya — dobara try karo.'); }
+};
+
+$('golink').onclick = async () => {
+  const url = $('link').value.trim();
+  if (!url) return;
+  logAdd('⏳ link dekh rahi hoon…');
+  try {
+    const res = await api('/api/ingest/link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (!res.ok) { logAdd('ℹ️ ' + (data.detail || 'link add nahi ho paaya')); return; }
+    $('link').value = '';
+    for (const r of data.added) logAdd(`✅ "${r.title}" add ho gayi!`, true);
+    refreshCount();
+  } catch (e) { logAdd('❌ Link add nahi ho paaya — dobara try karo.'); }
+};
+
 /* ---- Health + install ---- */
-fetch('/api/health').then(r => r.json()).then(h => {
-  $('count').textContent = `${h.recipes} recipe${h.recipes === 1 ? '' : 's'}` + (h.chat_ready ? '' : ' · chat offline');
-});
+function refreshCount() {
+  api('/api/health').then(r => r.ok ? r.json() : null).then(h => {
+    if (!h) return;
+    $('count').textContent = `${h.recipes} recipe${h.recipes === 1 ? '' : 's'}` + (h.chat_ready ? '' : ' · chat offline');
+  }).catch(() => {});
+}
+refreshCount();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 </body>

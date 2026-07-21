@@ -73,6 +73,34 @@ the same brain will plug into WhatsApp untouched. Note: iOS Safari needs HTTPS (
 localhost) for the mic; for testing on her phone, tunnel with something like
 `tailscale`/`ngrok`, or use text first.
 
+New recipes can be added straight from the app (➕): snap/upload **photos of book
+pages or screenshots** (works today), or paste an **Instagram / YouTube link** (the
+endpoint and UI are live; those extractors land in Phase 3).
+
+## The API is the product surface (iOS-ready)
+
+Everything the PWA does goes through the HTTP API — nothing is web-only — so a native
+iOS (SwiftUI) app is a pure client of the same server, no backend changes needed:
+
+| Route | What it does |
+|---|---|
+| `GET /api/health` | recipe count, chat readiness |
+| `GET /api/recipes`, `GET /api/recipes/{id}` | browse the collection |
+| `GET /api/photos/{name}` | the archived original page photo for a recipe |
+| `POST /api/chat` `{message, history[]}` | talk to the assistant |
+| `POST /api/ingest/photos` (multipart) | add recipes from page photos / screenshots |
+| `POST /api/ingest/link` `{url}` | add from an Instagram / YouTube link (501 until Phase 3) |
+
+Auth: set `MKB_ACCESS_TOKEN` and every `/api` route requires `Authorization: Bearer
+<token>` (or `?token=` for `<img>` loads). Recipe photos are archived
+content-addressed under `MKB_PHOTOS_DIR` and referenced by bare filename, so recipes
+carry no server paths. Ingestion is idempotent — re-sending the same photo updates
+rather than duplicates.
+
+Two known deferrals for a multi-device future (documented, not blockers): chat history
+is client-replayed rather than a server-owned conversation resource, and photo
+ingestion is synchronous rather than a job queue. Both are additive API changes.
+
 ## Tests
 
 The model, storage, ingestion, and agent seams are covered without any network or API

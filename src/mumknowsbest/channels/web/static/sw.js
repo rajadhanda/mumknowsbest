@@ -1,6 +1,6 @@
 /* Minimal service worker: makes the app installable and caches the shell.
    API calls always go to the network — recipe answers must never be stale. */
-const CACHE = 'mkb-shell-v1';
+const CACHE = 'mkb-shell-v2';
 const SHELL = ['/', '/manifest.json', '/icon-180.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {

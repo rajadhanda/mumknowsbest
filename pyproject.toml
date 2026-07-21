@@ -6,14 +6,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = [
-    # Use the latest SDK — vision + messages.parse (structured outputs) are relied on.
-    "anthropic>=0.40",
+    # messages.parse(output_format=...) with block-level parsed_output requires a
+    # modern SDK — floor verified empirically against 0.117.
+    "anthropic>=0.117",
     "pydantic>=2",
 ]
 
 [project.optional-dependencies]
-web = ["fastapi>=0.110", "uvicorn>=0.29"]
-dev = ["pytest>=7", "httpx>=0.27", "fastapi>=0.110", "uvicorn>=0.29"]
+web = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+dev = ["pytest>=7", "httpx>=0.27", "fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
 
 [project.scripts]
 mumknowsbest = "mumknowsbest.cli:main"

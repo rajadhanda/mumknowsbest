@@ -35,11 +35,17 @@ def cmd_ingest_photos(args: argparse.Namespace) -> None:
     settings = get_settings()
     _require_key(settings)
     store = SqliteRecipeStore(settings.db_path)
-    source = PaperBookSource(args.photo_dir, LLMClient(settings))
+    source = PaperBookSource(
+        args.photo_dir, LLMClient(settings), archive_dir=settings.photos_dir
+    )
     photos = source.photos()
     print(f"Found {len(photos)} photo(s) in {args.photo_dir}. Reading with {settings.vision_model} ...")
     added = ingest(source, store)
     print(f"Added {added} recipe(s). Collection now holds {store.count()}.")
+    if source.failures:
+        print(f"\n{len(source.failures)} photo(s) failed (fix and re-run — already-added pages just update):")
+        for photo, error in source.failures:
+            print(f"  - {photo}: {error}")
 
 
 def cmd_list(args: argparse.Namespace) -> None:

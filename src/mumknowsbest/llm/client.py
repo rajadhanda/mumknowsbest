@@ -1,8 +1,8 @@
 """Anthropic client wrapper — the one place that talks to Claude.
 
-Keeping all model calls behind this class means the ingestion pipelines and the agent
-don't import the SDK directly, model IDs come from `Settings`, and the whole thing is
-easy to fake in tests (pass any object with a compatible `.messages` to `client=`).
+Keeping all model calls behind this module means the ingestion pipelines and the agent
+don't configure the SDK themselves, model IDs come from `Settings`, and the whole thing
+is easy to fake in tests (pass any object with a compatible `.messages` to `client=`).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Any, Optional
 from ..config import Settings, get_settings
 from ..models import PageExtraction
 
-_MEDIA_TYPES = {
+MEDIA_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".png": "image/png",
@@ -24,14 +24,22 @@ _MEDIA_TYPES = {
 
 
 def media_type_for(path: str | Path) -> str:
-    return _MEDIA_TYPES.get(Path(path).suffix.lower(), "image/jpeg")
+    return MEDIA_TYPES.get(Path(path).suffix.lower(), "image/jpeg")
 
 
-_EXTRACT_SYSTEM = """\
+def make_anthropic_client(settings: Settings) -> Any:
+    """Single construction point for the SDK client (agent + ingestion share it)."""
+    import anthropic  # imported lazily so the package imports without the SDK
+
+    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+
+def _extract_system(language: str) -> str:
+    return f"""\
 You read photos of pages from a home cook's recipe book and turn them into structured recipes.
 
-The pages are a Hindi-English mix (Hinglish): text may be English, Hindi (Devanagari), or
-romanized Hindi, and is sometimes handwritten.
+The cook writes in {language}: text may be English, Hindi (Devanagari), or romanized Hindi,
+and is sometimes handwritten.
 
 Rules:
 - Transcribe faithfully. Preserve the cook's own wording and language in `raw_text`, and keep
@@ -39,10 +47,10 @@ Rules:
 - Set `language` to what the page actually uses: "en", "hi", or "hinglish".
 - If a photo shows more than one recipe, return each one separately. If it shows none, return an
   empty list.
-- Quantities matter: capture `qty` and `unit` exactly as written (including "to taste",
-  "andaaz", "स्वादानुसार"). Do not invent numbers you cannot read — leave them out instead.
-- Put the cook's tips, variations, substitutions, and garnish lines in `notes` (e.g. a
-  "नोट:" line, or "garnish with ..."), not in `steps`.
+- Quantities matter: capture `qty` and `unit` exactly as written (including "to taste", "andaaz",
+  "स्वादानुसार"). Do not invent numbers you cannot read — leave them out instead.
+- Put the cook's tips, variations, substitutions, and garnish lines in `notes` (e.g. a "नोट:"
+  line, or "garnish with ..."), not in `steps`.
 - Add a few helpful tags (cuisine, meal type, dietary) only when they're obvious.
 - If a word is unclear, transcribe your best guess and keep going — don't drop the recipe.
 """
@@ -55,26 +63,23 @@ class LLMClient:
         client: Any = None,
     ) -> None:
         self.settings = settings or get_settings()
-        if client is not None:
-            self._client = client
-        else:
-            import anthropic  # imported lazily so the package imports without the SDK
-
-            self._client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
-
-    @property
-    def raw(self) -> Any:
-        """The underlying Anthropic client, for callers that need full control."""
-        return self._client
+        self._client = client if client is not None else make_anthropic_client(self.settings)
 
     def extract_recipes_from_image(self, image_path: str | Path) -> PageExtraction:
         """Read one recipe-book page photo into structured recipes."""
         image_path = Path(image_path)
-        data = base64.standard_b64encode(image_path.read_bytes()).decode("ascii")
+        return self.extract_recipes_from_image_bytes(
+            image_path.read_bytes(), media_type_for(image_path)
+        )
+
+    def extract_recipes_from_image_bytes(
+        self, data: bytes, media_type: str
+    ) -> PageExtraction:
+        """Same extraction, from raw bytes (uploads from the web/iOS app land here)."""
         response = self._client.messages.parse(
             model=self.settings.vision_model,
-            max_tokens=8000,
-            system=_EXTRACT_SYSTEM,
+            max_tokens=16000,  # a dense multi-recipe page can be long; truncation breaks parsing
+            system=_extract_system(self.settings.language),
             messages=[
                 {
                     "role": "user",
@@ -83,8 +88,8 @@ class LLMClient:
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": media_type_for(image_path),
-                                "data": data,
+                                "media_type": media_type,
+                                "data": base64.standard_b64encode(data).decode("ascii"),
                             },
                         },
                         {"type": "text", "text": "Extract every recipe on this page."},
@@ -93,4 +98,9 @@ class LLMClient:
             ],
             output_format=PageExtraction,
         )
-        return response.parsed_output or PageExtraction()
+        # parsed_output lives on the text *block*, not the message.
+        for block in response.content:
+            parsed = getattr(block, "parsed_output", None)
+            if parsed is not None:
+                return parsed
+        return PageExtraction()

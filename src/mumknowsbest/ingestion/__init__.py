@@ -5,6 +5,6 @@ plug in without touching storage or the agent.
 """
 
 from .base import RecipeSource, ingest
-from .paper_book import PaperBookSource
+from .paper_book import PaperBookSource, recipes_from_photo_bytes
 
-__all__ = ["RecipeSource", "ingest", "PaperBookSource"]
+__all__ = ["RecipeSource", "ingest", "PaperBookSource", "recipes_from_photo_bytes"]
